@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSL Debugger</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background-color: #2d2d30;
+            padding: 10px 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .status {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status.running { background-color: #28a745; }
+        .status.paused { background-color: #ffc107; color: #000; }
+        .status.stopped { background-color: #dc3545; }
+        
+        .main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background-color: #252526;
+            border-right: 1px solid #3e3e42;
+            overflow-y: auto;
+        }
+        
+        .panel {
+            border-bottom: 1px solid #3e3e42;
+        }
+        
+        .panel-header {
+            background-color: #2d2d30;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .panel-content {
+            padding: 8px 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .toolbar {
+            background-color: #2d2d30;
+            padding: 8px 12px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn {
+            background-color: #0e639c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .btn:hover {
+            background-color: #1177bb;
+        }
+        
+        .btn:disabled {
+            background-color: #3c3c3c;
+            cursor: not-allowed;
+        }
+        
+        .code-area {
+            flex: 1;
+            background-color: #1e1e1e;
+            padding: 16px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .breakpoint-item, .variable-item, .stack-item {
+            padding: 4px 8px;
+            margin: 2px 0;
+            border-radius: 3px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .breakpoint-item:hover, .variable-item:hover, .stack-item:hover {
+            background-color: #2a2d2e;
+        }
+        
+        .breakpoint-enabled {
+            border-left: 3px solid #dc3545;
+        }
+        
+        .breakpoint-disabled {
+            border-left: 3px solid #6c757d;
+            opacity: 0.6;
+        }
+        
+        .variable-name {
+            color: #9cdcfe;
+            font-weight: 600;
+        }
+        
+        .variable-value {
+            color: #ce9178;
+        }
+        
+        .console {
+            height: 200px;
+            background-color: #0f0f23;
+            border-top: 1px solid #3e3e42;
+            padding: 8px 12px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            white-space: pre-wrap;
+        }
+        
+        .log-debug { color: #569cd6; }
+        .log-trace { color: #4ec9b0; }
+        .log-error { color: #f14c4c; }
+        
+        .input-group {
+            display: flex;
+            margin: 4px 0;
+        }
+        
+        .input-group input {
+            flex: 1;
+            background-color: #3c3c3c;
+            color: #d4d4d4;
+            border: 1px solid #5a5a5a;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .input-group button {
+            margin-left: 4px;
+            padding: 4px 8px;
+        }
+        
+        .expand-icon {
+            margin-right: 4px;
+            transition: transform 0.2s;
+        }
+        
+        .expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🐛 DSL Debugger</h1>
+        <div class="status" id="status">Stopped</div>
+    </div>
+    
+    <div class="main">
+        <div class="sidebar">
+            <!-- Breakpoints Panel -->
+            <div class="panel">
+                <div class="panel-header" onclick="togglePanel('breakpoints')">
+                    <span><span class="expand-icon">▶</span>Breakpoints</span>
+                    <button class="btn" onclick="clearBreakpoints()" style="font-size: 10px; padding: 2px 6px;">Clear</button>
+                </div>
+                <div class="panel-content" id="breakpoints-content">
+                    <div class="input-group">
+                        <input type="text" id="breakpoint-input" placeholder="file:line" />
+                        <button class="btn" onclick="addBreakpoint()">Add</button>
+                    </div>
+                    <div id="breakpoints-list"></div>
+                </div>
+            </div>
+            
+            <!-- Variables Panel -->
+            <div class="panel">
+                <div class="panel-header" onclick="togglePanel('variables')">
+                    <span><span class="expand-icon">▶</span>Variables</span>
+                </div>
+                <div class="panel-content" id="variables-content">
+                    <div id="variables-list"></div>
+                </div>
+            </div>
+            
+            <!-- Call Stack Panel -->
+            <div class="panel">
+                <div class="panel-header" onclick="togglePanel('stack')">
+                    <span><span class="expand-icon">▶</span>Call Stack</span>
+                </div>
+                <div class="panel-content" id="stack-content">
+                    <div id="stack-list"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="toolbar">
+                <button class="btn" id="step-btn" onclick="step()">Step</button>
+                <button class="btn" id="continue-btn" onclick="continueExecution()">Continue</button>
+                <button class="btn" onclick="restart()">Restart</button>
+                <button class="btn" onclick="stop()">Stop</button>
+            </div>
+            
+            <div class="code-area" id="code-area">
+                <div>Load your DSL file to start debugging...</div>
+                <div style="margin-top: 20px; color: #6a6a6a;">
+                    <div>💡 Tips:</div>
+                    <div>• Set breakpoints by clicking line numbers</div>
+                    <div>• Use step/continue controls to navigate execution</div>
+                    <div>• Monitor variables and call stack in the sidebar</div>
+                </div>
+            </div>
+            
+            <div class="console">
+                <div id="console-output"></div>
+                <div class="input-group">
+                    <input type="text" id="console-input" placeholder="Evaluate expression..." onkeypress="handleConsoleEnter(event)" />
+                    <button class="btn" onclick="evaluateExpression()">Eval</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentSession = null;
+        let debuggerState = {
+            status: 'stopped',
+            breakpoints: {},
+            variables: {},
+            stack: []
+        };
+        
+        // Panel management
+        function togglePanel(panelName) {
+            const header = event.currentTarget;
+            const content = document.getElementById(panelName + '-content');
+            const icon = header.querySelector('.expand-icon');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                header.classList.add('expanded');
+            } else {
+                content.style.display = 'none';
+                header.classList.remove('expanded');
+            }
+        }
+        
+        // Initialize panels as expanded
+        document.addEventListener('DOMContentLoaded', function() {
+            const panels = ['breakpoints', 'variables', 'stack'];
+            panels.forEach(panel => {
+                const header = document.querySelector(`[onclick="togglePanel('${panel}')"]`);
+                header.classList.add('expanded');
+            });
+            
+            // Start polling for updates
+            setInterval(updateDebuggerState, 1000);
+        });
+        
+        // API communication
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                };
+                
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const response = await fetch(`/debug/${endpoint}`, options);
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                logToConsole(`Error: ${error.message}`, 'error');
+                return { success: false, message: error.message };
+            }
+        }
+        
+        // Breakpoint management
+        async function addBreakpoint() {
+            const input = document.getElementById('breakpoint-input');
+            const value = input.value.trim();
+            
+            if (!value) return;
+            
+            const parts = value.split(':');
+            if (parts.length !== 2) {
+                logToConsole('Breakpoint format: file:line', 'error');
+                return;
+            }
+            
+            const [file, line] = parts;
+            const breakpoint = {
+                file: file,
+                line: parseInt(line),
+                function: ''
+            };
+            
+            const result = await apiCall(`breakpoints?session=${currentSession}`, 'POST', breakpoint);
+            
+            if (result.success) {
+                input.value = '';
+                updateBreakpointsList();
+                logToConsole(`Breakpoint set at ${file}:${line}`, 'debug');
+            } else {
+                logToConsole(`Failed to set breakpoint: ${result.message}`, 'error');
+            }
+        }
+        
+        async function clearBreakpoints() {
+            // Implementation would clear all breakpoints
+            document.getElementById('breakpoints-list').innerHTML = '';
+            logToConsole('All breakpoints cleared', 'debug');
+        }
+        
+        async function updateBreakpointsList() {
+            if (!currentSession) return;
+            
+            const result = await apiCall(`breakpoints?session=${currentSession}`);
+            if (result.success) {
+                const list = document.getElementById('breakpoints-list');
+                list.innerHTML = '';
+                
+                Object.values(result.data || {}).forEach(bp => {
+                    const item = document.createElement('div');
+                    item.className = bp.enabled ? 'breakpoint-item breakpoint-enabled' : 'breakpoint-item breakpoint-disabled';
+                    item.innerHTML = `${bp.file}:${bp.line}`;
+                    item.onclick = () => toggleBreakpoint(bp);
+                    list.appendChild(item);
+                });
+            }
+        }
+        
+        function toggleBreakpoint(breakpoint) {
+            // Toggle breakpoint enabled/disabled state
+            logToConsole(`Toggled breakpoint at ${breakpoint.file}:${breakpoint.line}`, 'debug');
+        }
+        
+        // Debug controls
+        async function step() {
+            const result = await apiCall('step', 'POST');
+            if (result.success) {
+                logToConsole('Step command sent', 'debug');
+                updateDebuggerState();
+            }
+        }
+        
+        async function continueExecution() {
+            const result = await apiCall('continue', 'POST');
+            if (result.success) {
+                logToConsole('Continue command sent', 'debug');
+                updateDebuggerState();
+            }
+        }
+        
+        function restart() {
+            logToConsole('Restart functionality not yet implemented', 'debug');
+        }
+        
+        function stop() {
+            logToConsole('Stop functionality not yet implemented', 'debug');
+        }
+        
+        // Variables and stack
+        async function updateVariables() {
+            const result = await apiCall('variables');
+            if (result.success) {
+                const list = document.getElementById('variables-list');
+                list.innerHTML = '';
+                
+                Object.entries(result.data || {}).forEach(([name, value]) => {
+                    const item = document.createElement('div');
+                    item.className = 'variable-item';
+                    item.innerHTML = `
+                        <span class="variable-name">${name}</span>: 
+                        <span class="variable-value">${JSON.stringify(value)}</span>
+                    `;
+                    list.appendChild(item);
+                });
+            }
+        }
+        
+        async function updateCallStack() {
+            const result = await apiCall('stack');
+            if (result.success) {
+                const list = document.getElementById('stack-list');
+                list.innerHTML = '';
+                
+                (result.data || []).forEach((frame, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'stack-item';
+                    item.innerHTML = `${index + 1}. ${frame}`;
+                    list.appendChild(item);
+                });
+            }
+        }
+        
+        // Console
+        function logToConsole(message, type = 'debug') {
+            const console = document.getElementById('console-output');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            console.appendChild(entry);
+            console.scrollTop = console.scrollHeight;
+        }
+        
+        function handleConsoleEnter(event) {
+            if (event.key === 'Enter') {
+                evaluateExpression();
+            }
+        }
+        
+        async function evaluateExpression() {
+            const input = document.getElementById('console-input');
+            const expression = input.value.trim();
+            
+            if (!expression) return;
+            
+            logToConsole(`> ${expression}`, 'debug');
+            
+            const result = await apiCall('evaluate', 'POST', { expression });
+            
+            if (result.success) {
+                logToConsole(result.data.result, 'debug');
+            } else {
+                logToConsole(`Error: ${result.message}`, 'error');
+            }
+            
+            input.value = '';
+        }
+        
+        // State management
+        async function updateDebuggerState() {
+            await Promise.all([
+                updateBreakpointsList(),
+                updateVariables(),
+                updateCallStack()
+            ]);
+        }
+        
+        function updateStatus(status) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            statusEl.className = `status ${status}`;
+            
+            // Update button states
+            const stepBtn = document.getElementById('step-btn');
+            const continueBtn = document.getElementById('continue-btn');
+            
+            stepBtn.disabled = status === 'running';
+            continueBtn.disabled = status === 'running';
+        }
+        
+        // Initialize
+        logToConsole('DSL Debugger UI loaded', 'debug');
+        logToConsole('Waiting for debug session...', 'debug');
+    </script>
+</body>
+</html>

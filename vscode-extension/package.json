@@ -1,0 +1,285 @@
+{
+  "name": "github-actions-dsl",
+  "displayName": "GitHub Actions DSL",
+  "description": "Advanced debugging and language support for GitHub Actions DSL files",
+  "version": "1.0.0",
+  "publisher": "golang-vibe-coding",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/golang-vibe-coding/golang-vibe-coding.git"
+  },
+  "homepage": "https://github.com/golang-vibe-coding/golang-vibe-coding",
+  "bugs": {
+    "url": "https://github.com/golang-vibe-coding/golang-vibe-coding/issues"
+  },
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Debuggers",
+    "Other"
+  ],
+  "keywords": [
+    "github-actions",
+    "dsl",
+    "debugger",
+    "yaml",
+    "workflow"
+  ],
+  "activationEvents": [
+    "onDebugResolve:dsl",
+    "workspaceContains:**/*.dsl"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "github-actions-dsl",
+        "aliases": [
+          "GitHub Actions DSL",
+          "dsl"
+        ],
+        "extensions": [
+          ".dsl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "github-actions-dsl",
+        "scopeName": "source.github-actions-dsl",
+        "path": "./syntaxes/dsl.tmGrammar.json"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "dsl",
+        "label": "DSL Debug",
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "program"
+            ],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Absolute path to the DSL file",
+                "default": "${workspaceFolder}/${command:AskForProgramName}"
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Automatically stop after launch",
+                "default": true
+              },
+              "args": {
+                "type": "array",
+                "description": "Command line arguments passed to the program",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Absolute path to the working directory of the program being debugged",
+                "default": "${workspaceFolder}"
+              },
+              "env": {
+                "type": "object",
+                "description": "Environment variables passed to the program",
+                "default": {}
+              },
+              "dapServerPort": {
+                "type": "number",
+                "description": "Port for the DAP server",
+                "default": 4711
+              },
+              "dapServerHost": {
+                "type": "string",
+                "description": "Host for the DAP server",
+                "default": "localhost"
+              },
+              "autoStartDapServer": {
+                "type": "boolean",
+                "description": "Automatically start the DAP server if not running",
+                "default": true
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "dsl",
+            "request": "launch",
+            "name": "Debug DSL File",
+            "program": "${file}",
+            "stopOnEntry": true
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "DSL: Launch",
+            "description": "A new configuration for launching a DSL debug session",
+            "body": {
+              "type": "dsl",
+              "request": "launch",
+              "name": "Debug DSL",
+              "program": "^\"\\${file}\"",
+              "stopOnEntry": true
+            }
+          }
+        ],
+        "variables": {
+          "AskForProgramName": "github-actions-dsl.getProgramName"
+        }
+      }
+    ],
+    "breakpoints": [
+      {
+        "language": "github-actions-dsl"
+      }
+    ],
+    "commands": [
+      {
+        "command": "github-actions-dsl.startDapServer",
+        "title": "Start DAP Server",
+        "category": "GitHub Actions DSL"
+      },
+      {
+        "command": "github-actions-dsl.stopDapServer",
+        "title": "Stop DAP Server",
+        "category": "GitHub Actions DSL"
+      },
+      {
+        "command": "github-actions-dsl.restartDapServer",
+        "title": "Restart DAP Server",
+        "category": "GitHub Actions DSL"
+      },
+      {
+        "command": "github-actions-dsl.openDebugConsole",
+        "title": "Open Debug Console",
+        "category": "GitHub Actions DSL"
+      },
+      {
+        "command": "github-actions-dsl.validateSyntax",
+        "title": "Validate DSL Syntax",
+        "category": "GitHub Actions DSL"
+      },
+      {
+        "command": "github-actions-dsl.showAst",
+        "title": "Show AST Visualization",
+        "category": "GitHub Actions DSL"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "resourceExtname == .dsl",
+          "command": "github-actions-dsl.validateSyntax",
+          "group": "dsl"
+        },
+        {
+          "when": "resourceExtname == .dsl",
+          "command": "github-actions-dsl.showAst",
+          "group": "dsl"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "github-actions-dsl.startDapServer",
+          "when": "workspaceHasPackageJSON || workspaceContainsFiles:**/*.dsl"
+        },
+        {
+          "command": "github-actions-dsl.stopDapServer",
+          "when": "workspaceHasPackageJSON || workspaceContainsFiles:**/*.dsl"
+        },
+        {
+          "command": "github-actions-dsl.restartDapServer",
+          "when": "workspaceHasPackageJSON || workspaceContainsFiles:**/*.dsl"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "GitHub Actions DSL",
+      "properties": {
+        "github-actions-dsl.dapServer.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start DAP server when debugging DSL files"
+        },
+        "github-actions-dsl.dapServer.port": {
+          "type": "number",
+          "default": 4711,
+          "description": "Default port for the DAP server"
+        },
+        "github-actions-dsl.dapServer.host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Default host for the DAP server"
+        },
+        "github-actions-dsl.dapServer.executable": {
+          "type": "string",
+          "default": "./bin/dap",
+          "description": "Path to the DAP server executable"
+        },
+        "github-actions-dsl.syntax.validation.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time syntax validation"
+        },
+        "github-actions-dsl.debug.verbose": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose debug logging"
+        },
+        "github-actions-dsl.ast.autoShow": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically show AST visualization when opening DSL files"
+        }
+      }
+    },
+    "problemMatchers": [
+      {
+        "name": "dsl",
+        "owner": "github-actions-dsl",
+        "fileLocation": "relative",
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error|info):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "npx @vscode/vsce package",
+    "publish": "npx @vscode/vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "16.x",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "@vscode/test-electron": "^2.2.0",
+    "@vscode/vsce": "^2.32.0",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "@vscode/debugadapter": "^1.51.0",
+    "@vscode/debugprotocol": "^1.51.0"
+  }
+}
