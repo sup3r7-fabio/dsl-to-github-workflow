@@ -20,6 +20,13 @@ go.work
 # Build output
 bin/
 dist/
+*.yml
+*.yaml
+
+# Azure storage emulator
+__blobstorage__/
+__queuestorage__/
+AzuriteConfig
 
 # IDE files
 .vscode/
@@ -36,3 +43,12 @@ dist/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Environment files
+.env
+.env.local
+
+# Temporary files
+tmp/
+temp/
+*.bak
