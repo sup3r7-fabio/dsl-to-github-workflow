@@ -1,0 +1,165 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+env:
+  GO_VERSION: '1.24'
+
+jobs:
+  build:
+    name: Build Cross-Platform Binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            binary: dsl-cli
+          - goos: linux
+            goarch: arm64
+            binary: dsl-cli
+          - goos: darwin
+            goarch: amd64
+            binary: dsl-cli
+          - goos: darwin
+            goarch: arm64
+            binary: dsl-cli
+          - goos: windows
+            goarch: amd64
+            binary: dsl-cli.exe
+          - goos: windows
+            goarch: arm64
+            binary: dsl-cli.exe
+    
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Get version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION=${GITHUB_REF#refs/tags/}
+        fi
+        echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+        echo "Building version: ${VERSION}"
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        mkdir -p dist
+        go build -ldflags "-X main.version=${{ steps.version.outputs.VERSION }} -s -w" \
+          -o dist/${{ matrix.binary }} \
+          ./cmd/golang-vibe-coding
+
+    - name: Create archive
+      run: |
+        cd dist
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          zip ../dsl-cli-${{ steps.version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip ${{ matrix.binary }}
+        else
+          tar -czf ../dsl-cli-${{ steps.version.outputs.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz ${{ matrix.binary }}
+        fi
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dsl-cli-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: |
+          dsl-cli-*.tar.gz
+          dsl-cli-*.zip
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Get version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION=${GITHUB_REF#refs/tags/}
+        fi
+        echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+
+    - name: Prepare release assets
+      run: |
+        mkdir -p release-assets
+        find artifacts -name "*.tar.gz" -o -name "*.zip" | xargs -I {} cp {} release-assets/
+
+    - name: Generate changelog
+      run: |
+        cat > CHANGELOG.md << EOF
+        # DSL-to-GitHub-Workflow CLI ${{ steps.version.outputs.VERSION }}
+        
+        ## Features
+        - Convert DSL files to GitHub Actions workflows
+        - Support for loops (for, foreach, repeat)
+        - Variable interpolation
+        - Debug support with VS Code extension
+        
+        ## Installation
+        
+        ### Linux/macOS
+        \`\`\`bash
+        # Download and extract
+        curl -L https://github.com/sup3r7-fabio/dsl-to-github-workflow/releases/download/${{ steps.version.outputs.VERSION }}/dsl-cli-${{ steps.version.outputs.VERSION }}-linux-amd64.tar.gz | tar -xz
+        sudo mv dsl-cli /usr/local/bin/
+        \`\`\`
+        
+        ### Windows
+        Download the Windows zip file and extract dsl-cli.exe to your PATH.
+        
+        ## Usage
+        \`\`\`bash
+        # Compile DSL to GitHub Actions YAML
+        dsl-cli compile input.dsl --output workflow.yml
+        
+        # Show help
+        dsl-cli --help
+        \`\`\`
+        EOF
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.VERSION }}
+        name: DSL CLI ${{ steps.version.outputs.VERSION }}
+        body_path: CHANGELOG.md
+        files: release-assets/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

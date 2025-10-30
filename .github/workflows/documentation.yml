@@ -1,0 +1,112 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'examples/**'
+      - '*.md'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'examples/**'
+      - '*.md'
+
+jobs:
+  test-examples:
+    name: Test DSL Examples
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+
+    - name: Build CLI
+      run: |
+        go build -o bin/dsl-cli ./cmd/golang-vibe-coding
+        chmod +x bin/dsl-cli
+
+    - name: Test all DSL examples
+      run: |
+        mkdir -p test-outputs
+        
+        # Test each DSL example file
+        for dsl_file in examples/*.dsl; do
+          if [ -f "$dsl_file" ]; then
+            echo "Testing $dsl_file..."
+            output_file="test-outputs/$(basename "$dsl_file" .dsl).yml"
+            ./bin/dsl-cli compile "$dsl_file" --output "$output_file"
+            
+            # Verify the output file was created and is valid YAML
+            if [ -f "$output_file" ]; then
+              echo "✓ Successfully compiled $dsl_file"
+              # Check if it's valid YAML
+              python3 -c "import yaml; yaml.safe_load(open('$output_file'))" || {
+                echo "✗ Invalid YAML generated for $dsl_file"
+                exit 1
+              }
+            else
+              echo "✗ Failed to compile $dsl_file"
+              exit 1
+            fi
+          fi
+        done
+
+    - name: Upload compiled examples
+      uses: actions/upload-artifact@v4
+      with:
+        name: compiled-examples
+        path: test-outputs/
+        retention-days: 7
+
+  validate-readme:
+    name: Validate README and Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js for markdown validation
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install markdown lint
+      run: npm install -g markdownlint-cli
+
+    - name: Lint markdown files
+      run: |
+        markdownlint README.md docs/ || true
+
+    - name: Check for broken links
+      uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        use-quiet-mode: 'yes'
+        use-verbose-mode: 'yes'
+        config-file: '.github/markdown-link-check-config.json'
+
+  spell-check:
+    name: Spell Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Spell check
+      uses: streetsidesoftware/cspell-action@v6
+      with:
+        files: |
+          README.md
+          docs/**/*.md
+          examples/**/*.dsl
+        incremental_files_only: false

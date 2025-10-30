@@ -1,0 +1,24 @@
+run:
+  timeout: 5m
+  go: "1.21"
+
+version: "2"
+
+linters:
+  enable:
+    - bodyclose
+    - errcheck
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - gofmt
+    - goimports
+    - goconst
+    - misspell
+    - unconvert
+    - unparam
+    - whitespace

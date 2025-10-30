@@ -1,0 +1,18 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^http://localhost"
+    }
+  ],
+  "httpStatusCodes": {
+    "400": "warn",
+    "401": "warn",
+    "403": "warn",
+    "404": "error",
+    "405": "warn",
+    "500": "error"
+  },
+  "timeout": "20s",
+  "retryOn429": true,
+  "retryCount": 3
+}

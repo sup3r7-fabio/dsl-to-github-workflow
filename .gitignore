@@ -20,8 +20,13 @@ go.work
 # Build output
 bin/
 dist/
+
+# Generated output files (but allow workflow and config files)
 *.yml
+!.github/workflows/*.yml
+!.golangci.yml
 *.yaml
+!.github/workflows/*.yaml
 
 # Azure storage emulator
 __blobstorage__/
