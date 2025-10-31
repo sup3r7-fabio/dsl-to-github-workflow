@@ -120,6 +120,9 @@ func (p *Parser) parseWorkflow() *ast.Workflow {
 			job := p.parseJob()
 			if job != nil {
 				workflow.Jobs[job.Name] = job
+			} else {
+				// If parseJob failed, advance past tokens to avoid infinite loop
+				p.nextToken()
 			}
 		case lexer.FOR, lexer.FOREACH, lexer.REPEAT:
 			loop := p.parseLoop()
@@ -129,6 +132,9 @@ func (p *Parser) parseWorkflow() *ast.Workflow {
 				for name, job := range jobs {
 					workflow.Jobs[name] = job
 				}
+			} else {
+				// If parseLoop failed, advance past tokens to avoid infinite loop
+				p.nextToken()
 			}
 		case lexer.ENV:
 			env := p.parseEnvBlock()
@@ -229,7 +235,6 @@ func (p *Parser) parseJob() *ast.Job {
 			if env != nil {
 				job.Env = env
 			}
-			p.nextToken()
 		case lexer.IF:
 			condition := p.parseIfCondition()
 			job.If = condition
@@ -406,6 +411,11 @@ func (p *Parser) parseEnvBlock() map[string]string {
 		env[key] = p.curToken.Literal
 		p.nextToken()
 		p.skipNewlines()
+	}
+
+	// Advance past the closing brace
+	if p.curTokenIs(lexer.RBRACE) {
+		p.nextToken()
 	}
 
 	return env
